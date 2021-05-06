@@ -9,10 +9,14 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.os.Bundle;
 import javax.mail.*;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeUtility;
+
 import android.util.Log;
 import android.view.View;
 import android.view.animation.AnimationUtils;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -37,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
     MailListAdapter adapter;
     List<Mail> items = new ArrayList();
     SwipeRefreshLayout swipeContainer;
+    boolean process_working = false;
 
     private void initListe() {
         recyclerView = findViewById(R.id.list);
@@ -46,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
         //val layoutManager = GridLayoutManager(this, 3)
 
         recyclerView.setLayoutManager(layoutManager);
-        recyclerView.addItemDecoration(new DividerItemDecoration(this, LinearLayoutManager.VERTICAL));
+//        recyclerView.addItemDecoration(new DividerItemDecoration(this, LinearLayoutManager.VERTICAL));
 
         swipeContainer = findViewById(R.id.swipeContainer);
         swipeContainer.setOnRefreshListener(() ->  refreshListAsync());
@@ -57,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
                 android.R.color.holo_blue_bright);
     }
 
+
+
     private void readMessages() {
 
         new BackgroundTask(MainActivity.this) {
@@ -66,6 +73,9 @@ public class MainActivity extends AppCompatActivity {
                 items.clear();
                 runOnUiThread(() -> {
                     swipeContainer.setRefreshing(true);
+                    process_working=true;
+
+                    display();
                 });
                 Properties props = new Properties();
                 props.setProperty("mail.store.protocol", "imaps");
@@ -77,27 +87,28 @@ public class MainActivity extends AppCompatActivity {
                     inbox.open(Folder.READ_ONLY);
 
                     Log.i(TAG, "Inbox Messages : "+inbox.getMessageCount());
-
+                    Address[] froms;
+                    String from_name, from_adress;
                     for (int i = 1; i <= inbox.getMessageCount(); i++) {
                         Message msg = inbox.getMessage(i);
 
-                        Address[] addresses = msg.getFrom();
-//                        StringBuffer sb = new StringBuffer();
-//                        for (Address address : addresses) {
-//                            sb.append(address.toString()+" | ");
-//                        }
+                        froms = msg.getFrom();
+                        InternetAddress address = (InternetAddress) froms[0];
+                        from_name = address.getPersonal();
+                        from_name =(from_name != null)? MimeUtility.decodeText(from_name):"?";
+                        from_adress = address.getAddress() + ")";
 
                         Multipart mp = (Multipart) msg.getContent();
                         BodyPart bp = mp.getBodyPart(0);
 
-                        items.add(new Mail(addresses[0].toString(), msg.getSubject(), msg.getSentDate().toString(), bp.getContent().toString()));
+                        items.add(new Mail(from_name, from_adress, msg.getSubject(), msg.getSentDate(), bp.getContent().toString()));
+
+                        runOnUiThread(() -> {
+                            adapter.updateItems(items);
+                            adapter.notifyDataSetChanged();
+                        });
                     }
 
-//                    Multipart mp = (Multipart) msg.getContent();
-//                    BodyPart bp = mp.getBodyPart(0);
-//                    Log.i(TAG ,"SENT DATE:" + msg.getSentDate());
-//                    Log.i(TAG ,"SUBJECT:" + msg.getSubject());
-//                    Log.i(TAG ,"CONTENT:" + bp.getContent());
                 } catch (Exception mex) {
 
                     Log.e(TAG ,"Error : "+mex.getMessage());
@@ -106,14 +117,18 @@ public class MainActivity extends AppCompatActivity {
 
                 runOnUiThread(() -> {
                     display();
-                    swipeContainer.setRefreshing(false);
+//                    swipeContainer.setRefreshing(false);
                 });
 
             }
 
             @Override
             public void onPostExecute() {
-                Log.i(TAG, "onPostExecute: i've finished!");
+                Log.i(TAG, "lecture messages terminée.");
+                runOnUiThread(() -> {
+                    swipeContainer.setRefreshing(false);
+                    process_working=false;
+                });
             }
         }.start();
     }
@@ -127,8 +142,10 @@ public class MainActivity extends AppCompatActivity {
                 ));
     }
 
+
     private void refreshListAsync() {
-        readMessages();
+        if(!process_working)
+            readMessages();
     }
 
     public abstract class BackgroundTask {
@@ -145,8 +162,5 @@ public class MainActivity extends AppCompatActivity {
         public abstract void doInBackground();
         public abstract void onPostExecute();
     }
-
-
-
 
 }

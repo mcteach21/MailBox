@@ -1,5 +1,6 @@
 package mchou.apps.box.adapters;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,11 +10,10 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-
 import mchou.apps.box.R;
+import mchou.apps.box.tools.Utils;
 
 public class MailListAdapter extends RecyclerView.Adapter<MailListAdapter.ViewHolder> {
     List<Mail> items;
@@ -32,13 +32,10 @@ public class MailListAdapter extends RecyclerView.Adapter<MailListAdapter.ViewHo
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Mail item = items.get(position);
-        holder.from.setText(item.getFrom());
+        holder.from.setText(item.getSender()); //item.getFrom()
         holder.subject.setText(item.getSubject());
-        holder.body.setText(item.getBody()); //.length()<50?item.getBody():item.getBody().subSequence(0,50)+"..");
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM HH:mm");
-            holder.date.setText(item.getDate().format(formatter));
-        }
+        holder.body.setText(item.getBody());
+        holder.date.setText(item.getDate());
 
         holder.img.setImageResource(R.drawable.mail_logo);
     }
@@ -48,18 +45,35 @@ public class MailListAdapter extends RecyclerView.Adapter<MailListAdapter.ViewHo
         return items.size();
     }
 
+    public void updateItems(List<Mail> items) {
+        this.items = items;
+    }
+
+    List<Integer> opened = new ArrayList();
     public class ViewHolder extends RecyclerView.ViewHolder {
         TextView subject, from, body, date;
         ImageView img;
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
 
-            subject = (TextView) itemView.findViewById(R.id.subject);
-            from = (TextView) itemView.findViewById(R.id.from);
-            body = (TextView) itemView.findViewById(R.id.body);
-            date = (TextView) itemView.findViewById(R.id.date);
+            subject = itemView.findViewById(R.id.subject);
+            from =  itemView.findViewById(R.id.from);
+            body =  itemView.findViewById(R.id.body);
+            date =  itemView.findViewById(R.id.date);
 
-            img = (ImageView) itemView.findViewById(R.id.img);
+            img =  itemView.findViewById(R.id.img);
+
+            Log.i("tests", "ViewHolder: "+body.getLayoutParams().height);
+
+            itemView.setOnClickListener(e->{
+                    if(opened.contains(getAdapterPosition())) {
+                        Utils.collapse(body);
+                        opened.remove((Object)getAdapterPosition());
+                    }else{
+                        Utils.expand(body);
+                        opened.add(getAdapterPosition());
+                    }
+                });
         }
     }
 }
